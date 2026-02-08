@@ -4,8 +4,8 @@
  * A Lovelace card for visualizing and controlling window shutters with 
  * optional window open/close sensors.
  * 
- * @author Based on CodePen design by 10tribu (Ouvrants & Volets Jeedom)
- * @version 1.0.0
+ * Based on CodePen design by 10tribu (Ouvrants & Volets Jeedom)
+ * @version 2.0.0
  * @license MIT
  */
 
@@ -15,20 +15,14 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-// Card configuration
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "2.0.0";
 
 // Default configuration
 const DEFAULT_CONFIG = {
   title: "",
   entities: [],
   style: {
-    primary_color: "#3498db",
-    secondary_color: "#2c3e50",
-    frame_color: "#8B4513",
-    glass_color: "rgba(135, 206, 235, 0.3)",
-    shutter_color: "#4a4a4a",
-    size: "medium",
+    size: "medium", // small, medium, large, xlarge
     layout: "horizontal",
     show_percentage: true,
     show_buttons: true,
@@ -36,43 +30,18 @@ const DEFAULT_CONFIG = {
   },
 };
 
-// Size presets
+// Size presets matching CodePen
 const SIZE_PRESETS = {
-  small: { width: 80, height: 120 },
-  medium: { width: 120, height: 180 },
-  large: { width: 160, height: 240 },
+  small: { width: 100, height: 150 },
+  medium: { width: 200, height: 150 },
+  large: { width: 400, height: 300 },
+  xlarge: { width: 500, height: 300 },
 };
 
-// Frame style presets
-const FRAME_STYLES = {
-  wood: {
-    color: "#8B4513",
-    gradient: "linear-gradient(180deg, #A0522D 0%, #8B4513 50%, #654321 100%)",
-    texture: true,
-  },
-  aluminum: {
-    color: "#A8A8A8",
-    gradient: "linear-gradient(180deg, #C0C0C0 0%, #A8A8A8 50%, #808080 100%)",
-    texture: false,
-  },
-  pvc: {
-    color: "#F5F5F5",
-    gradient: "linear-gradient(180deg, #FFFFFF 0%, #F5F5F5 50%, #E0E0E0 100%)",
-    texture: false,
-  },
-  black: {
-    color: "#2C2C2C",
-    gradient: "linear-gradient(180deg, #404040 0%, #2C2C2C 50%, #1A1A1A 100%)",
-    texture: false,
-  },
-};
-
-// Window type presets
-const WINDOW_TYPES = {
-  simple: { panels: 1, hasDivider: false },
-  double: { panels: 2, hasDivider: true },
-  sliding: { panels: 2, hasDivider: true, type: "sliding" },
-  french_door: { panels: 2, hasDivider: true, tall: true },
+// Door size presets
+const DOOR_SIZE_PRESETS = {
+  small: { width: 120, height: 275 },
+  medium: { width: 180, height: 300 },
 };
 
 class WindowShutterCard extends LitElement {
@@ -80,17 +49,13 @@ class WindowShutterCard extends LitElement {
     return {
       hass: { type: Object },
       config: { type: Object },
-      _dragging: { type: Object, state: true },
+      _hoveredSlider: { type: String, state: true },
     };
   }
 
   constructor() {
     super();
-    this._dragging = null;
-    this._boundMouseMove = this._handleMouseMove.bind(this);
-    this._boundMouseUp = this._handleMouseUp.bind(this);
-    this._boundTouchMove = this._handleTouchMove.bind(this);
-    this._boundTouchEnd = this._handleTouchEnd.bind(this);
+    this._hoveredSlider = null;
   }
 
   static getConfigElement() {
@@ -104,8 +69,9 @@ class WindowShutterCard extends LitElement {
           entity: "cover.my_shutter",
           window: "binary_sensor.my_window",
           name: "My Window",
-          type: "simple",
-          frame_style: "wood",
+          type: "windows",
+          color: "white",
+          size: "medium",
         },
       ],
     };
@@ -120,14 +86,12 @@ class WindowShutterCard extends LitElement {
       throw new Error("You need to define at least one entity");
     }
 
-    // Validate entities
     config.entities.forEach((entity, index) => {
       if (!entity.entity) {
         throw new Error(`Entity ${index + 1} is missing 'entity' property`);
       }
     });
 
-    // Merge with defaults
     this.config = {
       ...DEFAULT_CONFIG,
       ...config,
@@ -141,11 +105,7 @@ class WindowShutterCard extends LitElement {
   getCardSize() {
     const layout = this.config?.style?.layout || "horizontal";
     const entityCount = this.config?.entities?.length || 1;
-    
-    if (layout === "vertical") {
-      return entityCount * 3 + 1;
-    }
-    return 4;
+    return layout === "vertical" ? entityCount * 4 + 1 : 5;
   }
 
   // ============ STATE HELPERS ============
@@ -160,10 +120,10 @@ class WindowShutterCard extends LitElement {
     
     const position = state.attributes?.current_position;
     if (position !== undefined) {
+      // Position 0 = closed (shutter down), 100 = open (shutter up)
       return position;
     }
     
-    // Fallback based on state
     return state.state === "open" ? 100 : state.state === "closed" ? 0 : 50;
   }
 
@@ -205,126 +165,26 @@ class WindowShutterCard extends LitElement {
     this._callService("stop_cover", entityId);
   }
 
-  // ============ DRAG HANDLING ============
+  // ============ SLIDER HANDLING ============
 
-  _handleMouseDown(e, entityId) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const slider = e.currentTarget.closest(".shutter-slider");
-    const rect = slider.getBoundingClientRect();
-    
-    this._dragging = {
-      entityId,
-      startY: e.clientY,
-      sliderRect: rect,
-      startPosition: this._getShutterPosition(entityId),
-    };
-
-    window.addEventListener("mousemove", this._boundMouseMove);
-    window.addEventListener("mouseup", this._boundMouseUp);
+  _handleSliderInput(e, entityId) {
+    const value = parseInt(e.target.value, 10);
+    this._setPosition(entityId, value);
   }
 
-  _handleTouchStart(e, entityId) {
-    e.stopPropagation();
-    
-    const touch = e.touches[0];
-    const slider = e.currentTarget.closest(".shutter-slider");
-    const rect = slider.getBoundingClientRect();
-    
-    this._dragging = {
-      entityId,
-      startY: touch.clientY,
-      sliderRect: rect,
-      startPosition: this._getShutterPosition(entityId),
-    };
-
-    window.addEventListener("touchmove", this._boundTouchMove, { passive: false });
-    window.addEventListener("touchend", this._boundTouchEnd);
-  }
-
-  _handleMouseMove(e) {
-    if (!this._dragging) return;
-    e.preventDefault();
-    this._updateDrag(e.clientY);
-  }
-
-  _handleTouchMove(e) {
-    if (!this._dragging) return;
-    e.preventDefault();
-    this._updateDrag(e.touches[0].clientY);
-  }
-
-  _updateDrag(clientY) {
-    if (!this._dragging) return;
-
-    const { sliderRect, startY, startPosition, entityId } = this._dragging;
-    const deltaY = startY - clientY;
-    const sliderHeight = sliderRect.height;
-    const deltaPercent = (deltaY / sliderHeight) * 100;
-    
-    let newPosition = startPosition + deltaPercent;
-    newPosition = Math.max(0, Math.min(100, newPosition));
-    
-    // Update visual only (debounce actual service call)
-    this._dragging.currentPosition = newPosition;
+  _handleSliderHover(entityId, isHovering) {
+    this._hoveredSlider = isHovering ? entityId : null;
     this.requestUpdate();
   }
 
-  _handleMouseUp(e) {
-    this._finishDrag();
-    window.removeEventListener("mousemove", this._boundMouseMove);
-    window.removeEventListener("mouseup", this._boundMouseUp);
-  }
-
-  _handleTouchEnd(e) {
-    this._finishDrag();
-    window.removeEventListener("touchmove", this._boundTouchMove);
-    window.removeEventListener("touchend", this._boundTouchEnd);
-  }
-
-  _finishDrag() {
-    if (this._dragging?.currentPosition !== undefined) {
-      this._setPosition(this._dragging.entityId, this._dragging.currentPosition);
-    }
-    this._dragging = null;
-    this.requestUpdate();
-  }
-
-  // ============ SLIDER CLICK ============
-
-  _handleSliderClick(e, entityId) {
-    if (this._dragging) return;
-    
-    const slider = e.currentTarget;
-    const rect = slider.getBoundingClientRect();
-    const clickY = e.clientY - rect.top;
-    const percentage = 100 - (clickY / rect.height) * 100;
-    
-    this._setPosition(entityId, Math.max(0, Math.min(100, percentage)));
-  }
-
-  // ============ WINDOW CLICK ============
-
-  _handleWindowClick(entityId) {
-    // Fire event for more info dialog
-    const event = new CustomEvent("hass-more-info", {
-      bubbles: true,
-      composed: true,
-      detail: { entityId },
-    });
-    this.dispatchEvent(event);
-  }
-
-  // ============ RENDER METHODS ============
+  // ============ RENDER ============
 
   render() {
     if (!this.config || !this.hass) {
       return html``;
     }
 
-    const style = this.config.style;
-    const layout = style.layout || "horizontal";
+    const layout = this.config.style.layout || "horizontal";
 
     return html`
       <ha-card>
@@ -345,25 +205,21 @@ class WindowShutterCard extends LitElement {
       entity,
       window: windowEntity,
       name,
-      type = "simple",
-      frame_style = "wood",
+      type = "windows",
+      color = "white",
+      size = "medium",
       favorite_position,
-      icon,
     } = entityConfig;
 
     const coverState = this._getEntityState(entity);
-    const position = this._dragging?.entityId === entity 
-      ? this._dragging.currentPosition 
-      : this._getShutterPosition(entity);
+    const position = this._getShutterPosition(entity);
     const isWindowOpen = this._isWindowOpen(windowEntity);
-    const isMoving = this._isShutterMoving(entity);
     const displayName = name || coverState?.attributes?.friendly_name || entity;
 
-    const sizePreset = SIZE_PRESETS[this.config.style.size] || SIZE_PRESETS.medium;
-    const frameStyle = FRAME_STYLES[frame_style] || FRAME_STYLES.wood;
-    const windowType = WINDOW_TYPES[type] || WINDOW_TYPES.simple;
+    // Shutter height: 100 - position (position 100 = open = 0% height)
+    const shutterHeight = 100 - position;
 
-    const shutterClosed = 100 - position;
+    const isHovered = this._hoveredSlider === entity;
 
     return html`
       <div class="window-unit">
@@ -371,126 +227,65 @@ class WindowShutterCard extends LitElement {
           ? html`<div class="window-name">${displayName}</div>`
           : ""}
         
-        <div class="window-container" 
-             style="--frame-color: ${frameStyle.color}; 
-                    --frame-gradient: ${frameStyle.gradient};
-                    --window-width: ${sizePreset.width}px;
-                    --window-height: ${sizePreset.height}px;">
-          
-          <!-- Window frame -->
-          <div class="window-frame ${windowType.tall ? 'tall' : ''}"
-               @click="${() => this._handleWindowClick(entity)}">
+        <div class="ouvrant-container">
+          <!-- Window/Baie -->
+          <div class="${type} ${color} size-${size} ${isWindowOpen ? (type === 'baie' ? 'slide' : 'open') : ''}">
+            <!-- Background (vue extérieure) -->
+            <div class="background"></div>
             
-            <!-- Glass panels -->
-            <div class="glass-container ${type}">
-              ${this._renderGlassPanels(windowType, isWindowOpen)}
+            <!-- Roller shutter -->
+            <div class="roller" style="height: ${shutterHeight}%"></div>
+            
+            <!-- Slider control -->
+            <div class="range ${isHovered ? 'hovered' : ''}"
+                 @mouseenter="${() => this._handleSliderHover(entity, true)}"
+                 @mouseleave="${() => this._handleSliderHover(entity, false)}">
+              <input type="range" 
+                     class="slidr" 
+                     orient="vertical" 
+                     min="0" 
+                     max="100" 
+                     .value="${position}"
+                     @input="${(e) => this._handleSliderInput(e, entity)}"
+              />
+              <output style="top: calc(${position}% - 12px)">${position}</output>
             </div>
-            
-            <!-- Shutter overlay -->
-            <div class="shutter-overlay" 
-                 style="--shutter-closed: ${shutterClosed}%">
-              <div class="shutter ${isMoving ? 'moving' : ''}">
-                ${this._renderShutterSlats(shutterClosed)}
-              </div>
-            </div>
-            
-            <!-- Window open indicator -->
-            ${windowEntity && isWindowOpen
-              ? html`<div class="window-open-indicator">
-                  <ha-icon icon="mdi:window-open"></ha-icon>
-                </div>`
-              : ""}
           </div>
           
-          <!-- Slider -->
-          <div class="shutter-slider" 
-               @click="${(e) => this._handleSliderClick(e, entity)}"
-               @mousedown="${(e) => this._handleMouseDown(e, entity)}"
-               @touchstart="${(e) => this._handleTouchStart(e, entity)}">
-            <div class="slider-track">
-              <div class="slider-fill" style="height: ${position}%"></div>
-              <div class="slider-thumb" style="bottom: ${position}%">
-                <ha-icon icon="mdi:drag-horizontal"></ha-icon>
-              </div>
-            </div>
-            ${this.config.style.show_percentage
-              ? html`<div class="position-label">${Math.round(position)}%</div>`
-              : ""}
-          </div>
+          <!-- Control buttons -->
+          ${this.config.style.show_buttons
+            ? html`
+                <div class="cmd-widget">
+                  <a class="btn-default" @click="${() => this._openShutter(entity)}" title="Ouvrir">
+                    <ha-icon icon="mdi:arrow-up"></ha-icon>
+                  </a>
+                  <a class="btn-default" @click="${() => this._stopShutter(entity)}" title="Stop">
+                    <ha-icon icon="mdi:stop"></ha-icon>
+                  </a>
+                  ${favorite_position !== undefined
+                    ? html`
+                        <a class="btn-default favorite" 
+                           @click="${() => this._setPosition(entity, favorite_position)}" 
+                           title="Position favorite (${favorite_position}%)">
+                          <ha-icon icon="mdi:star"></ha-icon>
+                        </a>
+                      `
+                    : ""}
+                  <a class="btn-default" @click="${() => this._closeShutter(entity)}" title="Fermer">
+                    <ha-icon icon="mdi:arrow-down"></ha-icon>
+                  </a>
+                </div>
+              `
+            : ""}
         </div>
-        
-        <!-- Control buttons -->
-        ${this.config.style.show_buttons
-          ? html`
-              <div class="button-row">
-                <button class="control-btn" @click="${() => this._openShutter(entity)}" 
-                        title="Ouvrir complètement">
-                  <ha-icon icon="mdi:arrow-up-bold"></ha-icon>
-                </button>
-                ${isMoving
-                  ? html`
-                      <button class="control-btn stop" @click="${() => this._stopShutter(entity)}"
-                              title="Arrêter">
-                        <ha-icon icon="mdi:stop"></ha-icon>
-                      </button>
-                    `
-                  : ""}
-                ${favorite_position !== undefined
-                  ? html`
-                      <button class="control-btn favorite" 
-                              @click="${() => this._setPosition(entity, favorite_position)}"
-                              title="Position favorite (${favorite_position}%)">
-                        <ha-icon icon="mdi:star"></ha-icon>
-                      </button>
-                    `
-                  : ""}
-                <button class="control-btn" @click="${() => this._closeShutter(entity)}"
-                        title="Fermer complètement">
-                  <ha-icon icon="mdi:arrow-down-bold"></ha-icon>
-                </button>
-              </div>
-            `
-          : ""}
       </div>
     `;
-  }
-
-  _renderGlassPanels(windowType, isOpen) {
-    const panels = [];
-    for (let i = 0; i < windowType.panels; i++) {
-      panels.push(html`
-        <div class="glass-panel ${isOpen && i === 0 ? 'open' : ''}">
-          <div class="glass-reflection"></div>
-          ${windowType.hasDivider ? html`<div class="panel-divider"></div>` : ""}
-        </div>
-      `);
-    }
-    return panels;
-  }
-
-  _renderShutterSlats(closedPercent) {
-    const slatCount = 12;
-    const slats = [];
-    for (let i = 0; i < slatCount; i++) {
-      slats.push(html`<div class="shutter-slat"></div>`);
-    }
-    return slats;
   }
 
   static get styles() {
     return css`
       :host {
-        --primary-color: var(--card-primary-color, #3498db);
-        --secondary-color: var(--card-secondary-color, #2c3e50);
-        --frame-color: #8B4513;
-        --frame-gradient: linear-gradient(180deg, #A0522D 0%, #8B4513 50%, #654321 100%);
-        --glass-color: rgba(135, 206, 235, 0.4);
-        --glass-reflection: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%);
-        --shutter-color: #4a4a4a;
-        --shutter-slat-color: #5a5a5a;
-        --window-width: 120px;
-        --window-height: 180px;
-        --shutter-closed: 0%;
+        display: block;
       }
 
       ha-card {
@@ -501,16 +296,15 @@ class WindowShutterCard extends LitElement {
       .card-header {
         font-size: 1.2em;
         font-weight: 500;
+        padding-bottom: 12px;
         color: var(--primary-text-color);
-        margin-bottom: 16px;
-        text-align: center;
       }
 
       .card-content {
         display: flex;
-        gap: 24px;
-        justify-content: center;
         flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
       }
 
       .card-content.layout-vertical {
@@ -518,395 +312,565 @@ class WindowShutterCard extends LitElement {
         align-items: center;
       }
 
-      .card-content.layout-horizontal {
-        flex-direction: row;
-        align-items: flex-start;
-      }
-
-      /* Window Unit */
       .window-unit {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 12px;
       }
 
       .window-name {
+        font-size: 0.9em;
         font-weight: 500;
+        margin-bottom: 8px;
         color: var(--primary-text-color);
-        font-size: 0.95em;
-        text-align: center;
       }
 
-      .window-container {
-        display: flex;
-        gap: 12px;
-        align-items: stretch;
-      }
-
-      /* Window Frame */
-      .window-frame {
-        width: var(--window-width);
-        height: var(--window-height);
-        background: var(--frame-gradient);
-        border-radius: 4px;
-        padding: 8px;
-        box-shadow: 
-          inset 0 2px 4px rgba(0,0,0,0.2),
-          0 4px 8px rgba(0,0,0,0.3);
-        position: relative;
-        cursor: pointer;
-        overflow: hidden;
-        transition: transform 0.2s ease;
-      }
-
-      .window-frame:hover {
-        transform: scale(1.02);
-      }
-
-      .window-frame.tall {
-        height: calc(var(--window-height) * 1.4);
-      }
-
-      /* Glass Container */
-      .glass-container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        gap: 4px;
-        position: relative;
-      }
-
-      .glass-container.double,
-      .glass-container.sliding,
-      .glass-container.french_door {
-        flex-direction: row;
-      }
-
-      .glass-panel {
-        flex: 1;
-        background: var(--glass-color);
-        background-image: var(--glass-reflection);
-        border: 2px solid rgba(255,255,255,0.2);
-        border-radius: 2px;
-        position: relative;
-        transition: transform 0.5s ease, opacity 0.3s ease;
-        overflow: hidden;
-      }
-
-      .glass-panel.open {
-        transform: perspective(500px) rotateY(-45deg);
-        transform-origin: left center;
-        opacity: 0.8;
-      }
-
-      .glass-reflection {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(
-          135deg,
-          rgba(255,255,255,0.3) 0%,
-          rgba(255,255,255,0.1) 30%,
-          transparent 60%
-        );
-        pointer-events: none;
-      }
-
-      .panel-divider {
-        position: absolute;
-        left: 50%;
-        top: 10%;
-        bottom: 10%;
-        width: 2px;
-        background: rgba(255,255,255,0.3);
-        transform: translateX(-50%);
-      }
-
-      /* Shutter Overlay */
-      .shutter-overlay {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        right: 8px;
-        bottom: 8px;
-        overflow: hidden;
-        pointer-events: none;
-      }
-
-      .shutter {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: var(--shutter-closed);
-        background: var(--shutter-color);
+      .ouvrant-container {
         display: flex;
         flex-direction: column;
-        justify-content: space-evenly;
-        transition: height 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-      }
-
-      .shutter.moving {
-        transition: none;
-      }
-
-      .shutter-slat {
-        height: 6px;
-        background: linear-gradient(
-          180deg,
-          var(--shutter-slat-color) 0%,
-          #3a3a3a 50%,
-          #2a2a2a 100%
-        );
-        margin: 0 2px;
-        border-radius: 1px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-      }
-
-      /* Window Open Indicator */
-      .window-open-indicator {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(46, 204, 113, 0.9);
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
         align-items: center;
-        justify-content: center;
-        color: white;
-        animation: pulse 2s infinite;
+      }
+
+      /* ========== DIMENSION DES OUVRANTS ========== */
+      .size-small {
+        width: 100px;
+        height: 150px;
+      }
+      .size-medium {
+        width: 200px;
+        height: 150px;
+      }
+      .size-large {
+        width: 400px;
+        height: 300px;
+      }
+      .size-xlarge {
+        width: 500px;
+        height: 300px;
+      }
+      .porte.size-small {
+        width: 120px;
+        height: 275px;
+      }
+      .porte.size-medium {
+        width: 180px;
+        height: 300px;
+      }
+
+      /* ========== MODELES OUVRANTS ========== */
+      .windows,
+      .baie,
+      .porte,
+      .garage {
+        position: relative;
+        display: block;
+        background: transparent;
+        padding: 5px;
+        margin: 20px 40px 35px;
+        transform-style: preserve-3d;
+        perspective: 300px;
         z-index: 10;
       }
 
-      @keyframes pulse {
-        0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+      .garage {
+        border-bottom: none !important;
+        box-shadow: none;
+        padding: 0;
       }
 
-      /* Slider */
-      .shutter-slider {
-        width: 32px;
-        height: var(--window-height);
-        background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
-        border-radius: 16px;
-        padding: 4px;
-        cursor: pointer;
-        position: relative;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
-        user-select: none;
-        touch-action: none;
-      }
-
-      .slider-track {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
-        border-radius: 12px;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .slider-fill {
+      /* ========== VITRE DE BAIE & FENETRE ========== */
+      .windows::before,
+      .windows::after,
+      .baie::before,
+      .baie::after,
+      .porte.size-small::before,
+      .porte::before,
+      .porte::after {
+        display: block;
         position: absolute;
-        bottom: 0;
+        content: "";
+        border: 10px solid white;
+        width: 47.25%;
+        height: calc(100% - 10px);
+        top: 5px;
+        margin: 0;
+        box-shadow: 0 1px 2px black, inset 0 0 5px rgba(0, 0, 0, 0.75);
+        z-index: 20;
+        background: linear-gradient(
+            135deg,
+            rgba(183, 222, 237, 0.25) 0%,
+            rgba(255, 255, 255, 0.35) 20%,
+            rgba(113, 206, 239, 0.25) 50%,
+            rgba(33, 180, 226, 0.15) 51%,
+            rgba(183, 222, 237, 0.15) 100%
+          ),
+          linear-gradient(
+            -165deg,
+            rgba(224, 243, 250, 0.45) 0%,
+            rgba(216, 240, 252, 0.25) 50%,
+            rgba(184, 226, 246, 0.35) 51%,
+            rgba(182, 223, 253, 0.35) 100%
+          );
+        transition: all 1s ease;
+      }
+
+      .porte.size-small::after {
+        display: none;
+      }
+      .porte.size-small::before {
+        width: 93.5%;
+      }
+
+      .baie::before,
+      .baie::after {
+        width: 50% !important;
+      }
+      .baie::after {
+        height: calc(100% - 9px) !important;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25), inset 0 0 5px rgba(0, 0, 0, 0.75);
+      }
+      .baie::before {
+        box-shadow: 0 1px 2px transparent, inset 0 0 5px rgba(0, 0, 0, 0.75);
+        border: 10px solid #f1f0f0;
+      }
+
+      .windows::before,
+      .baie::before,
+      .porte::before {
+        left: 5px;
+      }
+      .windows::after,
+      .baie::after,
+      .porte::after {
+        right: 5px;
+      }
+
+      /* ========== ETAT OUVERT (capteur) ========== */
+      .baie.slide::after {
+        right: 40%;
+        transition: all 1s ease;
+      }
+      .windows.open::before,
+      .porte.size-small.open::before,
+      .porte.size-medium.open::before {
+        transform: rotateY(-80deg) translateZ(5px);
+        transition: all 1s ease;
+        transform-origin: 0 0;
+      }
+      .windows.open::after,
+      .porte.size-medium.open::after {
+        transform: rotateY(80deg) translateZ(5px);
+        transition: all 1s ease;
+        transform-origin: 100% 0;
+      }
+
+      /* ========== COULEURS CADRE ========== */
+      .white {
+        border: 5px solid #e8e7e7;
+        box-shadow: inset 0 0 0 5px gainsboro, 0 1px 2px 0px rgba(0, 0, 0, 0.75);
+      }
+      .black {
+        border: 5px solid #353535;
+        box-shadow: inset 0 0 0 5px #2d2d2d, 0 1px 2px 0px rgba(0, 0, 0, 0.75);
+      }
+      .wood {
+        border: 5px solid #6d3e15;
+        box-shadow: inset 0 0 0 5px #583312, 0 1px 2px 0px rgba(0, 0, 0, 0.75);
+      }
+
+      .black::before,
+      .black::after {
+        border: 10px solid #353535 !important;
+      }
+      .wood::before,
+      .wood::after {
+        border: 10px solid #6d3e15 !important;
+      }
+
+      /* ========== VOLET ROULANT ========== */
+      .roller {
+        display: block;
+        position: absolute;
+        width: calc(100% - 10px);
+        height: 0%;
+        max-height: calc(100% - 10px);
+        margin: 0px;
+        padding: 0;
+        left: 5px;
+        right: 5px;
+        top: 5px;
+        border-bottom: 4px solid white;
+        border-left: 2px solid white;
+        border-right: 2px solid white;
+        transform: translateZ(-10px);
+        background-size: 10px 15px !important;
+        transition: height 1.75s ease 0.75s;
+        z-index: 15;
+      }
+
+      .garage .roller {
         left: 0;
         right: 0;
-        background: linear-gradient(180deg, var(--primary-color) 0%, #2980b9 100%);
-        border-radius: 12px;
-        transition: height 0.1s ease;
+        top: 0;
+        width: 100%;
+        max-height: 100%;
+        transform: translateZ(-1px);
       }
 
-      .slider-thumb {
+      .white .roller {
+        background: linear-gradient(0deg, #d8d8d8 10%, transparent 25%) 5px 0,
+          linear-gradient(0deg, transparent 45%, #d2d2d2 76%),
+          linear-gradient(
+            0deg,
+            transparent 26%,
+            #d0d0d0 38%,
+            #c3c3c3 59%,
+            transparent 60%
+          ),
+          #7d7d7d;
+        border-color: white;
+      }
+
+      .black .roller {
+        background: linear-gradient(0deg, #292929 10%, transparent 25%) 5px 0,
+          linear-gradient(0deg, transparent 45%, #383838 76%),
+          linear-gradient(
+            0deg,
+            transparent 26%,
+            #222 38%,
+            #252525 59%,
+            transparent 60%
+          ),
+          #2f2f2f;
+        border: 4px solid #464646;
+        border-left: 2px solid #232323;
+        border-right: 2px solid #232323;
+      }
+
+      .wood .roller {
+        background: linear-gradient(0deg, #573212 10%, transparent 25%) 5px 0,
+          linear-gradient(0deg, transparent 45%, #6d3e15 76%),
+          linear-gradient(
+            0deg,
+            transparent 26%,
+            #4c2b0e 38%,
+            #3e240c 59%,
+            transparent 60%
+          ),
+          #774212;
+        border: 4px solid #573212;
+        border-left: 2px solid #6d3e15;
+        border-right: 2px solid #6d3e15;
+      }
+
+      /* ========== CONTROL SLIDER ========== */
+      .range {
         position: absolute;
-        left: 50%;
-        transform: translateX(-50%) translateY(50%);
-        width: 28px;
-        height: 24px;
-        background: linear-gradient(180deg, #f0f0f0 0%, #d0d0d0 100%);
-        border-radius: 6px;
+        display: block;
+        top: 0;
+        left: 0;
+        width: 20px;
+        margin-top: 0px;
+        transition: all 1s ease;
+        margin-left: 5px;
+        height: 100%;
+        padding: 0;
+        z-index: 100;
+      }
+
+      .range:hover,
+      .range.hovered {
+        padding: 5px;
+        background: white;
+        margin-left: -31px;
+        transition: all 1s ease;
+        z-index: 100;
+      }
+
+      .windows.open .range,
+      .porte.size-medium.open .range {
+        margin-left: -7px;
+      }
+      .windows.open .range:hover,
+      .windows.open .range.hovered,
+      .porte.size-medium.open .range:hover,
+      .porte.size-medium.open .range.hovered {
+        margin-left: -37px;
+      }
+
+      /* Bouton slider */
+      .range::before {
+        content: "⇔";
+        cursor: pointer;
+        text-align: center;
+        right: 17px;
+        position: absolute;
+        top: calc(50% - 19px);
+        background: white;
+        padding: 2px 5px;
+        height: 21px;
+        line-height: 21px;
+        color: black;
+        opacity: 1;
+        z-index: 0;
+        transition: all 0.3s ease 1s;
+        width: 50px;
+        font-size: 16px;
+        transform: rotate(-90deg);
+      }
+
+      .range:hover::before,
+      .range.hovered::before {
+        transition: opacity 0.3s ease 1s, right 0.3s ease;
+        right: 6px;
+        opacity: 0;
+      }
+
+      .range input.slidr[type="range"] {
+        opacity: 0;
+        padding: 0;
+        margin: 0 5px;
+        z-index: 1000;
+        pointer-events: none;
+        cursor: default;
+        transition: all 0.3s ease;
+        writing-mode: bt-lr;
+        -webkit-appearance: slider-vertical;
+        width: 20px;
+        height: calc(100% - 10px);
+        position: absolute;
+        display: block;
+        top: 5px;
+        transform: rotate(180deg);
+      }
+
+      .range:hover input.slidr[type="range"],
+      .range.hovered input.slidr[type="range"] {
+        opacity: 1;
+        pointer-events: auto;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      /* Affichage du pourcentage */
+      .range output {
+        position: absolute;
+        top: 0px;
+        right: 25px;
+        padding: 0.5em;
+        background: rgba(76, 76, 76, 0.75);
+        color: white;
+        opacity: 0;
+        display: inline;
+        margin-top: -10px;
+        transition: opacity 0.3s ease 0.3s;
+        pointer-events: none;
+        cursor: default;
+        font-size: 12px;
+        border-radius: 4px;
+      }
+
+      .range:hover output,
+      .range.hovered output {
+        transition: opacity 0.3s ease;
+        opacity: 1;
+      }
+
+      .range output::after {
+        content: "%";
+        transition: all 1s ease;
+      }
+
+      .range output::before {
+        content: "";
+        display: inline-block;
+        position: absolute;
+        width: 0;
+        height: 0;
+        border-top: 5px solid transparent;
+        border-left: 7px solid rgba(76, 76, 76, 0.75);
+        border-bottom: 5px solid transparent;
+        top: 38%;
+        right: -6px;
+      }
+
+      /* Slider thumb styling */
+      .range input.slidr[type="range"]::-webkit-slider-runnable-track {
+        width: 12px;
+        height: 100%;
+        cursor: pointer;
+        background: #404040;
+        border-radius: 0px;
+      }
+
+      .range input.slidr[type="range"]::-webkit-slider-thumb {
+        border: 0px solid #000000;
+        height: 20px;
+        width: 20px;
+        border-radius: 7px;
+        background: #4c4c4c;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        margin-top: 0;
+      }
+
+      .range input.slidr[type="range"]:focus {
+        outline: none;
+      }
+
+      .range input.slidr[type="range"]:focus::-webkit-slider-runnable-track {
+        background: #404040;
+      }
+
+      /* ========== FOND DE FENETRE ========== */
+      .background {
+        display: block;
+        background-image: url("https://www.paysagiste.info/wp-content/uploads/2017/03/allee-jardin-768x0-c-default.jpg");
+        background-repeat: no-repeat;
+        background-size: cover;
+        width: 100%;
+        height: 100%;
+        transform: translateZ(-11px);
+        animation: day 360s infinite;
+        box-shadow: inset 0 0 20px 10px rgba(0, 0, 0, 0.25);
+      }
+
+      @keyframes day {
+        0% {
+          filter: brightness(1) contrast(1) grayscale(0);
+        }
+        50% {
+          filter: brightness(0.5) contrast(1.5) grayscale(1);
+        }
+        100% {
+          filter: brightness(1) contrast(1) grayscale(0);
+        }
+      }
+
+      /* ========== CMD WIDGET ========== */
+      .cmd-widget {
         display: flex;
+        justify-content: center;
+        margin-top: 10px;
+      }
+
+      .cmd-widget a.btn-default {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        cursor: grab;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        transition: bottom 0.1s ease;
-        z-index: 5;
-      }
-
-      .slider-thumb:active {
-        cursor: grabbing;
-      }
-
-      .slider-thumb ha-icon {
-        --mdc-icon-size: 16px;
-        color: #666;
-      }
-
-      .position-label {
-        position: absolute;
-        bottom: -24px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 0.8em;
-        color: var(--secondary-text-color);
-        font-weight: 500;
-        white-space: nowrap;
-      }
-
-      /* Button Row */
-      .button-row {
-        display: flex;
-        gap: 8px;
-        justify-content: center;
-        margin-top: 8px;
-      }
-
-      .control-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        margin: -2px;
         border: none;
-        background: linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%);
+        border-radius: 0;
+        background: var(--primary-color, #3498db);
         color: white;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: background 0.2s ease;
       }
 
-      .control-btn:hover {
-        background: linear-gradient(180deg, var(--primary-color) 0%, #2980b9 100%);
-        transform: scale(1.1);
+      .cmd-widget a.btn-default:hover {
+        background: white !important;
+        color: #4a4a4a;
       }
 
-      .control-btn:active {
-        transform: scale(0.95);
+      .cmd-widget a.btn-default:first-child {
+        border-radius: 4px 0 0 4px;
       }
 
-      .control-btn.stop {
-        background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
+      .cmd-widget a.btn-default:last-child {
+        border-radius: 0 4px 4px 0;
       }
 
-      .control-btn.favorite {
-        background: linear-gradient(180deg, #f39c12 0%, #e67e22 100%);
+      .cmd-widget a.btn-default.favorite {
+        background: var(--warning-color, #f1c40f);
       }
 
-      .control-btn ha-icon {
+      .cmd-widget ha-icon {
         --mdc-icon-size: 18px;
+      }
+
+      /* Helper classes */
+      .up {
+        height: 0% !important;
+      }
+      .down {
+        height: 100% !important;
       }
     `;
   }
 }
 
-// ============ CARD EDITOR ============
-
+// Card Editor
 class WindowShutterCardEditor extends LitElement {
   static get properties() {
     return {
       hass: { type: Object },
-      config: { type: Object },
+      _config: { type: Object },
     };
   }
 
   setConfig(config) {
-    this.config = config;
+    this._config = config;
   }
 
-  _valueChanged(ev) {
-    if (!this.config || !this.hass) {
-      return;
-    }
+  get _title() {
+    return this._config?.title || "";
+  }
 
-    const target = ev.target;
-    const newConfig = { ...this.config };
-
-    if (target.configValue) {
-      if (target.value === "") {
-        delete newConfig[target.configValue];
-      } else {
-        newConfig[target.configValue] = target.value;
-      }
-    }
-
-    const event = new CustomEvent("config-changed", {
-      detail: { config: newConfig },
-      bubbles: true,
-      composed: true,
-    });
-    this.dispatchEvent(event);
+  get _entities() {
+    return this._config?.entities || [];
   }
 
   render() {
-    if (!this.hass || !this.config) {
+    if (!this.hass || !this._config) {
       return html``;
     }
 
     return html`
       <div class="card-config">
-        <div class="config-row">
-          <ha-textfield
-            label="Titre (optionnel)"
-            .value="${this.config.title || ""}"
-            .configValue="${"title"}"
-            @input="${this._valueChanged}"
-          ></ha-textfield>
+        <div class="option">
+          <label>Titre</label>
+          <input
+            type="text"
+            .value="${this._title}"
+            @input="${this._titleChanged}"
+          />
         </div>
-        
-        <div class="config-section">
-          <h3>Entités</h3>
-          <p class="hint">
-            Configurez les entités en YAML pour un contrôle complet.
-            Chaque entité requiert au minimum une propriété "entity" 
-            (cover.xxx).
+
+        <div class="option">
+          <label>Entités (YAML)</label>
+          <p class="description">
+            Configurez les entités directement en YAML pour un contrôle complet.
           </p>
-        </div>
-        
-        <div class="config-section">
-          <h3>Style</h3>
-          <div class="config-row">
-            <ha-select
-              label="Taille"
-              .value="${this.config.style?.size || "medium"}"
-              @selected="${(e) => this._updateStyle("size", e.target.value)}"
-            >
-              <mwc-list-item value="small">Petit</mwc-list-item>
-              <mwc-list-item value="medium">Moyen</mwc-list-item>
-              <mwc-list-item value="large">Grand</mwc-list-item>
-            </ha-select>
-          </div>
-          
-          <div class="config-row">
-            <ha-select
-              label="Disposition"
-              .value="${this.config.style?.layout || "horizontal"}"
-              @selected="${(e) => this._updateStyle("layout", e.target.value)}"
-            >
-              <mwc-list-item value="horizontal">Horizontal</mwc-list-item>
-              <mwc-list-item value="vertical">Vertical</mwc-list-item>
-            </ha-select>
-          </div>
+          <pre>
+entities:
+  - entity: cover.volet_salon
+    window: binary_sensor.fenetre_salon
+    name: Salon
+    type: windows  # windows, baie, porte, garage
+    color: white   # white, black, wood
+    size: medium   # small, medium, large, xlarge
+    favorite_position: 50
+          </pre>
         </div>
       </div>
     `;
   }
 
-  _updateStyle(key, value) {
+  _titleChanged(e) {
     const newConfig = {
-      ...this.config,
-      style: {
-        ...this.config.style,
-        [key]: value,
-      },
+      ...this._config,
+      title: e.target.value,
     };
+    this._config = newConfig;
+    this._dispatch(newConfig);
+  }
 
+  _dispatch(config) {
     const event = new CustomEvent("config-changed", {
-      detail: { config: newConfig },
+      detail: { config },
       bubbles: true,
       composed: true,
     });
@@ -918,52 +882,52 @@ class WindowShutterCardEditor extends LitElement {
       .card-config {
         padding: 16px;
       }
-
-      .config-row {
+      .option {
         margin-bottom: 16px;
       }
-
-      .config-section {
-        margin-bottom: 24px;
-      }
-
-      .config-section h3 {
-        margin: 0 0 8px 0;
-        font-size: 1em;
+      label {
+        display: block;
         font-weight: 500;
-        color: var(--primary-text-color);
+        margin-bottom: 4px;
       }
-
-      .hint {
-        font-size: 0.85em;
-        color: var(--secondary-text-color);
-        margin: 0;
-      }
-
-      ha-textfield,
-      ha-select {
+      input {
         width: 100%;
+        padding: 8px;
+        border: 1px solid var(--divider-color);
+        border-radius: 4px;
+      }
+      .description {
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+        margin: 4px 0;
+      }
+      pre {
+        background: var(--code-editor-background-color, #f5f5f5);
+        padding: 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 0.85em;
       }
     `;
   }
 }
 
-// Register the custom elements
+// Register custom elements
 customElements.define("window-shutter-card", WindowShutterCard);
 customElements.define("window-shutter-card-editor", WindowShutterCardEditor);
 
-// Register with Home Assistant's custom card registry
+// Register card
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "window-shutter-card",
   name: "Window Shutter Card",
-  description: "Carte visuelle pour contrôler les volets roulants avec affichage fenêtres",
+  description: "A card for visualizing and controlling window shutters with optional window sensors",
   preview: true,
   documentationURL: "https://github.com/your-repo/window-shutter-card",
 });
 
 console.info(
   `%c WINDOW-SHUTTER-CARD %c v${CARD_VERSION} `,
-  "color: white; background: #3498db; font-weight: 700;",
-  "color: #3498db; background: white; font-weight: 700;"
+  "color: white; background: #3498db; font-weight: bold;",
+  "color: #3498db; background: white; font-weight: bold;"
 );
