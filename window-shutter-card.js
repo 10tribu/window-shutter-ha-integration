@@ -165,6 +165,23 @@ class WindowShutterCard extends LitElement {
     this._callService("stop_cover", entityId);
   }
 
+  // ============ RATIO PARSING ============
+
+  _parseRatio(ratio, size, type) {
+    const match = ratio.match(/^(\d+):(\d+)$/);
+    if (!match) return null;
+    const rw = parseInt(match[1], 10);
+    const rh = parseInt(match[2], 10);
+    if (!rw || !rh) return null;
+
+    // Use base height from size preset
+    const presets = type === "porte" ? DOOR_SIZE_PRESETS : SIZE_PRESETS;
+    const preset = presets[size] || presets["medium"] || SIZE_PRESETS["medium"];
+    const baseHeight = preset.height;
+    const width = Math.round(baseHeight * (rw / rh));
+    return { width, height: baseHeight };
+  }
+
   // ============ SLIDER HANDLING ============
 
   _handleSliderInput(e, entityId) {
@@ -208,6 +225,7 @@ class WindowShutterCard extends LitElement {
       type = "windows",
       color = "white",
       size = "medium",
+      ratio,
       favorite_position,
     } = entityConfig;
 
@@ -221,6 +239,17 @@ class WindowShutterCard extends LitElement {
 
     const isHovered = this._hoveredSlider === entity;
 
+    // Compute custom dimensions from ratio (e.g. "3:4")
+    let customStyle = "";
+    if (ratio) {
+      const dims = this._parseRatio(ratio, size, type);
+      if (dims) {
+        customStyle = "width:" + dims.width + "px;height:" + dims.height + "px;";
+      }
+    }
+
+    const openClass = isWindowOpen ? (type === "baie" ? "slide" : "open") : "";
+
     return html`
       <div class="window-unit">
         ${this.config.style.show_name
@@ -229,7 +258,8 @@ class WindowShutterCard extends LitElement {
         
         <div class="ouvrant-container">
           <!-- Window/Baie -->
-          <div class="${type} ${color} size-${size} ${isWindowOpen ? (type === 'baie' ? 'slide' : 'open') : ''}">
+          <div class="${type} ${color} size-${size} ${openClass}"
+               style="${customStyle}">
             <!-- Background (vue extérieure) -->
             <div class="background"></div>
             
@@ -852,6 +882,7 @@ entities:
     type: windows  # windows, baie, porte, garage
     color: white   # white, black, wood
     size: medium   # small, medium, large, xlarge
+    ratio: "3:4"   # ratio largeur:hauteur (optionnel)
     favorite_position: 50
           </pre>
         </div>
