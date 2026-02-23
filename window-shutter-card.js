@@ -643,13 +643,13 @@ class WindowShutterCard extends LitElement {
         top: calc(50% - 19px);
         background: white;
         height: 21px;
-        line-height: 21px;
+        line-height: 10px;
         color: black;
         opacity: 1;
         z-index: 0;
         transition: all 0.3s ease 1s;
         width: 50px;
-        font-size: 16px;
+        font-size: 28px;
         transform: rotate(-90deg);
       }
 
