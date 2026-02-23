@@ -665,7 +665,7 @@ class WindowShutterCard extends LitElement {
       .range input.slidr[type="range"] {
         opacity: 0;
         padding: 0;
-        margin: 0 5px;
+        margin: 0;
         z-index: 1000;
         pointer-events: none;
         cursor: default;
