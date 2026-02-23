@@ -228,6 +228,7 @@ class WindowShutterCard extends LitElement {
       size = "medium",
       ratio,
       favorite_position,
+      background_image,
     } = entityConfig;
 
     const coverState = this._getEntityState(entity);
@@ -249,6 +250,10 @@ class WindowShutterCard extends LitElement {
       }
     }
 
+    const backgroundStyle = background_image
+      ? `background-image: url('${background_image}');`
+      : "";
+
     const openClass = isWindowOpen ? (type === "baie" ? "slide" : "open") : "";
 
     return html`
@@ -262,7 +267,7 @@ class WindowShutterCard extends LitElement {
           <div class="${type} ${color} size-${size} ${openClass}"
                style="${customStyle}">
             <!-- Background (vue extérieure) -->
-            <div class="background"></div>
+            <div class="background" style="${backgroundStyle}"></div>
             
             <!-- Roller shutter -->
             <div class="roller" style="height: ${shutterHeight}%"></div>
@@ -887,6 +892,7 @@ entities:
     size: medium   # small, medium, large, xlarge
     ratio: "3:4"   # ratio largeur:hauteur (optionnel)
     favorite_position: 50
+    background_image: "/local/jardin.jpg"
           </pre>
         </div>
       </div>

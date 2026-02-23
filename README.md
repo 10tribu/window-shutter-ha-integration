@@ -103,6 +103,7 @@ style:
 | `frame_style` | string | ❌ | `wood` | Style du cadre (voir ci-dessous) |
 | `favorite_position` | number | ❌ | - | Position favorite (0-100) |
 | `icon` | string | ❌ | - | Icône personnalisée |
+| `background_image` | string | ❌ | image par défaut | URL de l'image de fond |
 
 ### Types de fenêtres
 
