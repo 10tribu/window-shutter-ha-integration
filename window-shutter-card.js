@@ -187,7 +187,7 @@ class WindowShutterCard extends LitElement {
 
   _handleSliderInput(e, entityId) {
     const value = parseInt(e.target.value, 10);
-    this._setPosition(entityId, value);
+    this._setPosition(entityId, 100 - value);
   }
 
   _handleSliderHover(entityId, isHovering) {
@@ -281,10 +281,10 @@ class WindowShutterCard extends LitElement {
                      orient="vertical" 
                      min="0" 
                      max="100" 
-                     .value="${position}"
+                     .value="${100 - position}"
                      @input="${(e) => this._handleSliderInput(e, entity)}"
               />
-              <output style="top: calc(${position}% - 12px)">${position}</output>
+              <output style="top: calc(${100 - position}% - 12px)">${position}</output>
             </div>
           </div>
           
