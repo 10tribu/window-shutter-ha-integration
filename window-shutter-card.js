@@ -293,6 +293,9 @@ class WindowShutterCard extends LitElement {
                   <a class="btn-default" @click="${() => this._stopShutter(entity)}" title="Stop">
                     <ha-icon icon="mdi:stop"></ha-icon>
                   </a>
+                  <a class="btn-default" @click="${() => this._closeShutter(entity)}" title="Fermer">
+                    <ha-icon icon="mdi:arrow-down"></ha-icon>
+                  </a>
                   ${favorite_position !== undefined && (this.config.style.show_favorite !== false)
             ? html`
                         <a class="btn-default favorite" 
@@ -302,9 +305,6 @@ class WindowShutterCard extends LitElement {
                         </a>
                       `
             : ""}
-                  <a class="btn-default" @click="${() => this._closeShutter(entity)}" title="Fermer">
-                    <ha-icon icon="mdi:arrow-down"></ha-icon>
-                  </a>
                 </div>
               `
         : ""}
@@ -810,11 +810,13 @@ class WindowShutterCard extends LitElement {
         border-radius: 4px 0 0 4px;
       }
 
-      .cmd-widget a.btn-default:last-child {
+      .cmd-widget a.btn-default:nth-child(3) {
         border-radius: 0 4px 4px 0;
       }
 
       .cmd-widget a.btn-default.favorite {
+        margin-left: 8px;
+        border-radius: 4px;
         background: var(--warning-color, #f1c40f);
       }
 
