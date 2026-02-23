@@ -27,6 +27,7 @@ const DEFAULT_CONFIG = {
     show_percentage: true,
     show_buttons: true,
     show_name: true,
+    show_favorite: true,
   },
 };
 
@@ -117,13 +118,13 @@ class WindowShutterCard extends LitElement {
   _getShutterPosition(entityId) {
     const state = this._getEntityState(entityId);
     if (!state) return 0;
-    
+
     const position = state.attributes?.current_position;
     if (position !== undefined) {
       // Position 0 = closed (shutter down), 100 = open (shutter up)
       return position;
     }
-    
+
     return state.state === "open" ? 100 : state.state === "closed" ? 0 : 50;
   }
 
@@ -206,12 +207,12 @@ class WindowShutterCard extends LitElement {
     return html`
       <ha-card>
         ${this.config.title
-          ? html`<div class="card-header">${this.config.title}</div>`
-          : ""}
+        ? html`<div class="card-header">${this.config.title}</div>`
+        : ""}
         <div class="card-content layout-${layout}">
           ${this.config.entities.map((entity) =>
-            this._renderWindowUnit(entity)
-          )}
+          this._renderWindowUnit(entity)
+        )}
         </div>
       </ha-card>
     `;
@@ -253,8 +254,8 @@ class WindowShutterCard extends LitElement {
     return html`
       <div class="window-unit">
         ${this.config.style.show_name
-          ? html`<div class="window-name">${displayName}</div>`
-          : ""}
+        ? html`<div class="window-name">${displayName}</div>`
+        : ""}
         
         <div class="ouvrant-container">
           <!-- Window/Baie -->
@@ -284,7 +285,7 @@ class WindowShutterCard extends LitElement {
           
           <!-- Control buttons -->
           ${this.config.style.show_buttons
-            ? html`
+        ? html`
                 <div class="cmd-widget">
                   <a class="btn-default" @click="${() => this._openShutter(entity)}" title="Ouvrir">
                     <ha-icon icon="mdi:arrow-up"></ha-icon>
@@ -292,21 +293,21 @@ class WindowShutterCard extends LitElement {
                   <a class="btn-default" @click="${() => this._stopShutter(entity)}" title="Stop">
                     <ha-icon icon="mdi:stop"></ha-icon>
                   </a>
-                  ${favorite_position !== undefined
-                    ? html`
+                  ${favorite_position !== undefined && (this.config.style.show_favorite !== false)
+            ? html`
                         <a class="btn-default favorite" 
                            @click="${() => this._setPosition(entity, favorite_position)}" 
                            title="Position favorite (${favorite_position}%)">
                           <ha-icon icon="mdi:star"></ha-icon>
                         </a>
                       `
-                    : ""}
+            : ""}
                   <a class="btn-default" @click="${() => this._closeShutter(entity)}" title="Fermer">
                     <ha-icon icon="mdi:arrow-down"></ha-icon>
                   </a>
                 </div>
               `
-            : ""}
+        : ""}
         </div>
       </div>
     `;

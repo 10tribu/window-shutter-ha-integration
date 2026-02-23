@@ -130,6 +130,7 @@ style:
 | `layout` | string | `horizontal` | Disposition: `horizontal`, `vertical` |
 | `show_percentage` | boolean | `true` | Afficher le pourcentage |
 | `show_buttons` | boolean | `true` | Afficher les boutons de contrôle |
+| `show_favorite` | boolean | `true` | Afficher le bouton favori (si `favorite_position` est définie) |
 | `show_name` | boolean | `true` | Afficher le nom |
 | `primary_color` | string | `#3498db` | Couleur principale |
 | `secondary_color` | string | `#2c3e50` | Couleur secondaire |
