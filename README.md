@@ -2,6 +2,7 @@
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1+-green.svg)
+[![Buy Me A Beer](https://img.shields.io/badge/Support-Buy%20me%20a%20beer-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/10tribu)
 
 Une carte Lovelace personnalisée pour Home Assistant permettant de visualiser et contrôler les volets roulants avec affichage optionnel de l'état des fenêtres (ouvert/fermé).
 
@@ -239,6 +240,12 @@ MIT License - Libre d'utilisation et modification.
 ## 🙏 Crédits
 
 Basé sur le design original de [10tribu](https://codepen.io/10tribu/pen/xXgNvN) (Ouvrants & Volets Jeedom).
+
+## ☕ Soutenir le projet
+
+Si vous appréciez cette carte et que vous souhaitez soutenir son développement, vous pouvez m'offrir une petite bière !
+
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="10tribu" data-color="#FFDD00" data-emoji="🍺"  data-font="Cookie" data-text="Buy me a beer" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
 
 ---
 
