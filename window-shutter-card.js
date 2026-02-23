@@ -616,9 +616,8 @@ class WindowShutterCard extends LitElement {
 
       .range:hover,
       .range.hovered {
-        padding: 5px;
         background: white;
-        margin-left: -31px;
+        margin-left: -26px;
         transition: all 1s ease;
         z-index: 100;
       }
@@ -673,10 +672,10 @@ class WindowShutterCard extends LitElement {
         writing-mode: bt-lr;
         -webkit-appearance: slider-vertical;
         width: 20px;
-        height: calc(100% - 10px);
+        height: 100%;
         position: absolute;
         display: block;
-        top: 5px;
+        top: 0;
         transform: rotate(180deg);
       }
 
