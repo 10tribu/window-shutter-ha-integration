@@ -635,14 +635,13 @@ class WindowShutterCard extends LitElement {
 
       /* Bouton slider */
       .range::before {
-        content: "⇔";
+        content: "↕";
         cursor: pointer;
         text-align: center;
         right: 17px;
         position: absolute;
         top: calc(50% - 19px);
         background: white;
-        padding: 2px 5px;
         height: 21px;
         line-height: 21px;
         color: black;
