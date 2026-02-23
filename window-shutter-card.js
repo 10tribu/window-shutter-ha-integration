@@ -224,12 +224,15 @@ class WindowShutterCard extends LitElement {
       window: windowEntity,
       name,
       type = "windows",
-      color = "white",
+      frame_style,
+      color: legacyColor = "white",
       size = "medium",
       ratio,
       favorite_position,
       background_image,
     } = entityConfig;
+
+    const color = frame_style || legacyColor;
 
     const coverState = this._getEntityState(entity);
     const position = this._getShutterPosition(entity);
