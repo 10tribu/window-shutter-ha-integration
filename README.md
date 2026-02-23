@@ -6,6 +6,8 @@
 
 Une carte Lovelace personnalisée pour Home Assistant permettant de visualiser et contrôler les volets roulants avec affichage optionnel de l'état des fenêtres (ouvert/fermé).
 
+🔗 **Démo en ligne** : [https://window-shutter-control.10tribu.net/](https://window-shutter-control.10tribu.net/)
+
 ## 📸 Aperçu
 
 La carte offre:
