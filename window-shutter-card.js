@@ -31,18 +31,20 @@ const DEFAULT_CONFIG = {
   },
 };
 
-// Size presets matching CodePen
+// Size presets matching card dimensions
 const SIZE_PRESETS = {
-  small: { width: 100, height: 150 },
-  medium: { width: 200, height: 150 },
-  large: { width: 400, height: 300 },
-  xlarge: { width: 500, height: 300 },
+  small: { width: 120, height: 150 },
+  medium: { width: 200, height: 180 },
+  large: { width: 300, height: 240 },
+  xlarge: { width: 400, height: 280 },
 };
 
 // Door size presets
 const DOOR_SIZE_PRESETS = {
-  small: { width: 120, height: 275 },
-  medium: { width: 180, height: 300 },
+  small: { width: 120, height: 240 },
+  medium: { width: 160, height: 280 },
+  large: { width: 200, height: 320 },
+  xlarge: { width: 240, height: 350 },
 };
 
 class WindowShutterCard extends LitElement {
@@ -225,14 +227,14 @@ class WindowShutterCard extends LitElement {
       name,
       type = "windows",
       frame_style,
-      color: legacyColor = "white",
+      color: entityColor,
       size = "medium",
       ratio,
       favorite_position,
       background_image,
     } = entityConfig;
 
-    const color = frame_style || legacyColor;
+    const color = entityColor || frame_style || "white";
 
     const coverState = this._getEntityState(entity);
     const position = this._getShutterPosition(entity);
@@ -372,28 +374,38 @@ class WindowShutterCard extends LitElement {
 
       /* ========== DIMENSION DES OUVRANTS ========== */
       .size-small {
-        width: 100px;
+        width: 120px;
         height: 150px;
       }
       .size-medium {
         width: 200px;
-        height: 150px;
+        height: 180px;
       }
       .size-large {
-        width: 400px;
-        height: 300px;
+        width: 300px;
+        height: 240px;
       }
       .size-xlarge {
-        width: 500px;
-        height: 300px;
+        width: 400px;
+        height: 280px;
+        max-width: 100%;
       }
       .porte.size-small {
         width: 120px;
-        height: 275px;
+        height: 240px;
       }
       .porte.size-medium {
-        width: 180px;
-        height: 300px;
+        width: 160px;
+        height: 280px;
+      }
+      .porte.size-large {
+        width: 200px;
+        height: 320px;
+      }
+      .porte.size-xlarge {
+        width: 240px;
+        height: 350px;
+        max-width: 100%;
       }
 
       /* ========== MODELES OUVRANTS ========== */
@@ -401,14 +413,16 @@ class WindowShutterCard extends LitElement {
       .baie,
       .porte,
       .garage {
+        box-sizing: border-box;
         position: relative;
         display: block;
         background: transparent;
         padding: 5px;
-        margin: 20px 40px 35px;
+        margin: 20px auto 35px;
         transform-style: preserve-3d;
         perspective: 300px;
         z-index: 10;
+        max-width: 100%;
       }
 
       .garage {
@@ -425,13 +439,14 @@ class WindowShutterCard extends LitElement {
       .porte.size-small::before,
       .porte::before,
       .porte::after {
+        box-sizing: border-box;
         display: block;
         position: absolute;
         content: "";
         border: 10px solid white;
-        width: 47.25%;
-        height: calc(100% - 10px);
-        top: 5px;
+        width: calc(50% - 2.5px);
+        height: 100%;
+        top: 0;
         margin: 0;
         box-shadow: 0 1px 2px black, inset 0 0 5px rgba(0, 0, 0, 0.75);
         z-index: 20;
@@ -453,19 +468,25 @@ class WindowShutterCard extends LitElement {
         transition: all 1s ease;
       }
 
+      .windows.size-small::after {
+        display: none;
+      }
+      .windows.size-small::before {
+        width: 100%;
+      }
+
       .porte.size-small::after {
         display: none;
       }
       .porte.size-small::before {
-        width: 93.5%;
+        width: 100%;
       }
 
       .baie::before,
       .baie::after {
-        width: 50% !important;
+        width: calc(50% + 2px) !important;
       }
       .baie::after {
-        height: calc(100% - 9px) !important;
         box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25), inset 0 0 5px rgba(0, 0, 0, 0.75);
       }
       .baie::before {
@@ -476,12 +497,12 @@ class WindowShutterCard extends LitElement {
       .windows::before,
       .baie::before,
       .porte::before {
-        left: 5px;
+        left: 0;
       }
       .windows::after,
       .baie::after,
       .porte::after {
-        right: 5px;
+        right: 0;
       }
 
       /* ========== ETAT OUVERT (capteur) ========== */
@@ -519,25 +540,26 @@ class WindowShutterCard extends LitElement {
 
       .black::before,
       .black::after {
-        border: 10px solid #353535 !important;
+        border-color: #353535 !important;
       }
       .wood::before,
       .wood::after {
-        border: 10px solid #6d3e15 !important;
+        border-color: #6d3e15 !important;
       }
 
       /* ========== VOLET ROULANT ========== */
       .roller {
+        box-sizing: border-box;
         display: block;
         position: absolute;
-        width: calc(100% - 10px);
+        width: 100%;
         height: 0%;
-        max-height: calc(100% - 10px);
+        max-height: 100%;
         margin: 0px;
         padding: 0;
-        left: 5px;
-        right: 5px;
-        top: 5px;
+        left: 0;
+        right: 0;
+        top: 0;
         border-bottom: 4px solid white;
         border-left: 2px solid white;
         border-right: 2px solid white;
@@ -604,6 +626,7 @@ class WindowShutterCard extends LitElement {
 
       /* ========== CONTROL SLIDER ========== */
       .range {
+        box-sizing: border-box;
         position: absolute;
         display: block;
         top: 0;
@@ -611,7 +634,7 @@ class WindowShutterCard extends LitElement {
         width: 20px;
         margin-top: 0px;
         transition: all 1s ease;
-        margin-left: 5px;
+        margin-left: 0px;
         height: 100%;
         padding: 0;
         z-index: 100;
@@ -1058,6 +1081,9 @@ class WindowShutterCardEditor extends LitElement {
 
     newEntity.type = value.type || "windows";
     newEntity.color = value.color || "white";
+    if (newEntity.frame_style) {
+      delete newEntity.frame_style;
+    }
     newEntity.size = value.size || "medium";
 
     if (value.ratio && value.ratio.trim() !== "") {
