@@ -851,60 +851,250 @@ class WindowShutterCardEditor extends LitElement {
   }
 
   setConfig(config) {
-    this._config = config;
+    this._config = config || {};
   }
 
-  get _title() {
-    return this._config?.title || "";
+  get _firstEntity() {
+    if (this._config?.entities && Array.isArray(this._config.entities) && this._config.entities.length > 0) {
+      return this._config.entities[0];
+    }
+    return {};
   }
 
-  get _entities() {
-    return this._config?.entities || [];
+  _getSchema() {
+    return [
+      {
+        name: "entity",
+        label: "Volet roulant (cover)",
+        required: true,
+        selector: {
+          entity: {
+            domain: "cover",
+          },
+        },
+      },
+      {
+        name: "window",
+        label: "Capteur d'ouverture (binary_sensor)",
+        selector: {
+          entity: {
+            domain: "binary_sensor",
+          },
+        },
+      },
+      {
+        name: "name",
+        label: "Nom affiché",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        type: "grid",
+        name: "",
+        schema: [
+          {
+            name: "type",
+            label: "Type d'ouvrant",
+            selector: {
+              select: {
+                options: [
+                  { value: "windows", label: "Fenêtre (windows)" },
+                  { value: "baie", label: "Baie vitrée (baie)" },
+                  { value: "porte", label: "Porte (porte)" },
+                  { value: "garage", label: "Garage (garage)" },
+                ],
+                mode: "dropdown",
+              },
+            },
+          },
+          {
+            name: "color",
+            label: "Couleur / Matériau",
+            selector: {
+              select: {
+                options: [
+                  { value: "white", label: "Blanc (white)" },
+                  { value: "black", label: "Noir (black)" },
+                  { value: "wood", label: "Bois (wood)" },
+                ],
+                mode: "dropdown",
+              },
+            },
+          },
+          {
+            name: "size",
+            label: "Taille",
+            selector: {
+              select: {
+                options: [
+                  { value: "small", label: "Petit (small)" },
+                  { value: "medium", label: "Moyen (medium)" },
+                  { value: "large", label: "Grand (large)" },
+                  { value: "xlarge", label: "Très grand (xlarge)" },
+                ],
+                mode: "dropdown",
+              },
+            },
+          },
+          {
+            name: "ratio",
+            label: "Ratio L:H (optionnel, ex: 3:4)",
+            selector: {
+              text: {},
+            },
+          },
+        ],
+      },
+      {
+        name: "favorite_position",
+        label: "Position favorite (0 - 100%)",
+        selector: {
+          number: {
+            min: 0,
+            max: 100,
+            step: 1,
+            unit_of_measurement: "%",
+            mode: "slider",
+          },
+        },
+      },
+      {
+        name: "background_image",
+        label: "Image d'arrière-plan (ex: /local/jardin.jpg ou URL)",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "title",
+        label: "Titre de la carte (optionnel)",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        type: "grid",
+        name: "",
+        schema: [
+          {
+            name: "show_buttons",
+            label: "Afficher les boutons de commande",
+            selector: {
+              boolean: {},
+            },
+          },
+          {
+            name: "show_favorite",
+            label: "Afficher le bouton favori",
+            selector: {
+              boolean: {},
+            },
+          },
+          {
+            name: "show_percentage",
+            label: "Afficher le pourcentage",
+            selector: {
+              boolean: {},
+            },
+          },
+          {
+            name: "show_name",
+            label: "Afficher le nom",
+            selector: {
+              boolean: {},
+            },
+          },
+        ],
+      },
+    ];
   }
 
-  render() {
-    if (!this.hass || !this._config) {
-      return html``;
+  _getFormData() {
+    const entity = this._firstEntity;
+    const style = this._config?.style || {};
+    return {
+      entity: entity.entity || "",
+      window: entity.window || "",
+      name: entity.name || "",
+      type: entity.type || "windows",
+      color: entity.color || entity.frame_style || "white",
+      size: entity.size || "medium",
+      ratio: entity.ratio || "",
+      favorite_position: entity.favorite_position !== undefined ? Number(entity.favorite_position) : undefined,
+      background_image: entity.background_image || "",
+      title: this._config?.title || "",
+      show_buttons: style.show_buttons !== false,
+      show_favorite: style.show_favorite !== false,
+      show_percentage: style.show_percentage !== false,
+      show_name: style.show_name !== false,
+    };
+  }
+
+  _valueChanged(ev) {
+    if (!this._config || !this.hass) {
+      return;
     }
 
-    return html`
-      <div class="card-config">
-        <div class="option">
-          <label>Titre</label>
-          <input
-            type="text"
-            .value="${this._title}"
-            @input="${this._titleChanged}"
-          />
-        </div>
+    const value = ev.detail.value;
+    const currentEntity = this._firstEntity;
 
-        <div class="option">
-          <label>Entités (YAML)</label>
-          <p class="description">
-            Configurez les entités directement en YAML pour un contrôle complet.
-          </p>
-          <pre>
-entities:
-  - entity: cover.volet_salon
-    window: binary_sensor.fenetre_salon
-    name: Salon
-    type: windows  # windows, baie, porte, garage
-    color: white   # white, black, wood
-    size: medium   # small, medium, large, xlarge
-    ratio: "3:4"   # ratio largeur:hauteur (optionnel)
-    favorite_position: 50
-    background_image: "/local/jardin.jpg"
-          </pre>
-        </div>
-      </div>
-    `;
-  }
+    const newEntity = {
+      ...currentEntity,
+      entity: value.entity || "",
+    };
 
-  _titleChanged(e) {
+    if (value.window) {
+      newEntity.window = value.window;
+    } else {
+      delete newEntity.window;
+    }
+
+    if (value.name) {
+      newEntity.name = value.name;
+    } else {
+      delete newEntity.name;
+    }
+
+    newEntity.type = value.type || "windows";
+    newEntity.color = value.color || "white";
+    newEntity.size = value.size || "medium";
+
+    if (value.ratio && value.ratio.trim() !== "") {
+      newEntity.ratio = value.ratio.trim();
+    } else {
+      delete newEntity.ratio;
+    }
+
+    if (value.favorite_position !== undefined && value.favorite_position !== null && value.favorite_position !== "") {
+      newEntity.favorite_position = Number(value.favorite_position);
+    } else {
+      delete newEntity.favorite_position;
+    }
+
+    if (value.background_image && value.background_image.trim() !== "") {
+      newEntity.background_image = value.background_image.trim();
+    } else {
+      delete newEntity.background_image;
+    }
+
     const newConfig = {
       ...this._config,
-      title: e.target.value,
+      title: value.title || "",
+      entities: [newEntity],
+      style: {
+        ...(this._config.style || {}),
+        show_buttons: value.show_buttons,
+        show_favorite: value.show_favorite,
+        show_percentage: value.show_percentage,
+        show_name: value.show_name,
+      },
     };
+
+    if (!newConfig.title) {
+      delete newConfig.title;
+    }
+
     this._config = newConfig;
     this._dispatch(newConfig);
   }
@@ -918,36 +1108,32 @@ entities:
     this.dispatchEvent(event);
   }
 
+  render() {
+    if (!this.hass || !this._config) {
+      return html``;
+    }
+
+    return html`
+      <div class="card-config">
+        <ha-form
+          .hass="${this.hass}"
+          .data="${this._getFormData()}"
+          .schema="${this._getSchema()}"
+          .computeLabel="${this._computeLabel}"
+          @value-changed="${this._valueChanged}"
+        ></ha-form>
+      </div>
+    `;
+  }
+
+  _computeLabel(schema) {
+    return schema.label || schema.name;
+  }
+
   static get styles() {
     return css`
       .card-config {
-        padding: 16px;
-      }
-      .option {
-        margin-bottom: 16px;
-      }
-      label {
-        display: block;
-        font-weight: 500;
-        margin-bottom: 4px;
-      }
-      input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-      }
-      .description {
-        font-size: 0.9em;
-        color: var(--secondary-text-color);
-        margin: 4px 0;
-      }
-      pre {
-        background: var(--code-editor-background-color, #f5f5f5);
-        padding: 12px;
-        border-radius: 4px;
-        overflow-x: auto;
-        font-size: 0.85em;
+        padding: 8px 0;
       }
     `;
   }

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🛠️ Éditeur visuel complet dans Home Assistant Lovelace (`ha-form` avec sélecteurs d'entités cover/binary_sensor, options d'ouvrants, couleurs, dimensions et options de style)
+
 ## [1.0.0] - 2024-01-01
 
 ### Added
