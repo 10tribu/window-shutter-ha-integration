@@ -420,7 +420,7 @@ class WindowShutterCard extends LitElement {
         padding: 5px;
         margin: 20px auto 35px;
         transform-style: preserve-3d;
-        perspective: 300px;
+        perspective: 800px;
         z-index: 10;
         max-width: 100%;
       }
@@ -512,14 +512,18 @@ class WindowShutterCard extends LitElement {
       }
       .windows.open::before,
       .porte.size-small.open::before,
-      .porte.size-medium.open::before {
-        transform: rotateY(-80deg) translateZ(5px);
+      .porte.size-medium.open::before,
+      .porte.size-large.open::before,
+      .porte.size-xlarge.open::before {
+        transform: rotateY(-65deg) translateZ(2px);
         transition: all 1s ease;
         transform-origin: 0 0;
       }
       .windows.open::after,
-      .porte.size-medium.open::after {
-        transform: rotateY(80deg) translateZ(5px);
+      .porte.size-medium.open::after,
+      .porte.size-large.open::after,
+      .porte.size-xlarge.open::after {
+        transform: rotateY(65deg) translateZ(2px);
         transition: all 1s ease;
         transform-origin: 100% 0;
       }
@@ -637,7 +641,7 @@ class WindowShutterCard extends LitElement {
         margin-left: 0px;
         height: 100%;
         padding: 0;
-        z-index: 100;
+        z-index: 200;
       }
 
       .range:hover,
@@ -645,18 +649,18 @@ class WindowShutterCard extends LitElement {
         background: white;
         margin-left: -26px;
         transition: all 1s ease;
-        z-index: 100;
+        z-index: 200;
       }
 
       .windows.open .range,
-      .porte.size-medium.open .range {
-        margin-left: -7px;
+      .porte.open .range {
+        margin-left: 0px;
       }
       .windows.open .range:hover,
       .windows.open .range.hovered,
-      .porte.size-medium.open .range:hover,
-      .porte.size-medium.open .range.hovered {
-        margin-left: -37px;
+      .porte.open .range:hover,
+      .porte.open .range.hovered {
+        margin-left: -26px;
       }
 
       /* Bouton slider */
