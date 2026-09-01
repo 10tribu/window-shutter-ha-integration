@@ -444,7 +444,7 @@ class WindowShutterCard extends LitElement {
         position: absolute;
         content: "";
         border: 10px solid white;
-        width: calc(50% - 2.5px);
+        width: 50%;
         height: 100%;
         top: 0;
         margin: 0;
